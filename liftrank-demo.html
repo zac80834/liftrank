@@ -145,6 +145,77 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#f
 .b-title{font-size:13px;font-weight:700;color:#ef9f27;}
 .b-sub{font-size:11px;color:rgba(255,255,255,.3);margin-top:2px;}
 .quiz-sub{display:none;}.quiz-sub.active{display:block;}
+.set-check {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  border: 2px solid rgba(255,255,255,.18);
+  background: transparent;
+  color: white;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.set-check.done {
+  background: #6d5efc;
+  border-color: #6d5efc;
+}
+
+.rest-timer-pill {
+  position: fixed;
+  right: 16px;
+  bottom: 82px;
+  z-index: 300;
+  background: rgba(15,15,26,.95);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 18px;
+  padding: 12px 14px;
+  box-shadow: 0 12px 30px rgba(0,0,0,.35);
+  min-width: 120px;
+}
+
+.rest-timer-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.4);
+}
+
+.rest-timer-time {
+  font-size: 28px;
+  font-weight: 800;
+  margin: 3px 0 6px;
+}
+
+.rest-timer-open {
+  border: none;
+  background: transparent;
+  color: #afa9ec;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.celebration-overlay {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(109,94,252,.35), rgba(0,0,0,.8));
+  z-index: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.celebration-card {
+  background: rgba(19,19,31,.95);
+  border-radius: 24px;
+  padding: 28px 24px;
+  text-align: center;
+  width: min(92vw, 360px);
+}
 </style>
 </head>
 <body>
@@ -192,9 +263,29 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#f
       <div class="overload-box">💡 Last time: 185 lb × 8. Try 185 × 9 or 190 × 7 today.</div>
       <div style="margin-top:12px;">
         <div class="set-grid" style="margin-bottom:3px;"><div></div><div class="set-lbl">Prev</div><div class="set-lbl">Weight</div><div class="set-lbl">Reps</div></div>
-        <div class="set-grid"><div class="set-num">1</div><div style="font-size:11px;color:rgba(255,255,255,.25);text-align:center;">185×8</div><input class="set-inp" value="185" type="number"/><input class="set-inp" value="9" type="number"/></div>
-        <div class="set-grid"><div class="set-num">2</div><div style="font-size:11px;color:rgba(255,255,255,.25);text-align:center;">185×8</div><input class="set-inp" value="185" type="number"/><input class="set-inp" value="8" type="number"/></div>
-        <div class="set-grid"><div class="set-num">3</div><div style="font-size:11px;color:rgba(255,255,255,.25);text-align:center;">185×7</div><input class="set-inp" placeholder="lb" type="number"/><input class="set-inp" placeholder="reps" type="number"/></div>
+        <div class="set-grid" style="grid-template-columns:28px 1fr 1fr 1fr 34px;">
+  <div class="set-num">1</div>
+  <div style="font-size:11px;color:rgba(255,255,255,.25);text-align:center;">185×8</div>
+  <input class="set-inp" value="185" type="number"/>
+  <input class="set-inp" value="9" type="number"/>
+  <button class="set-check" onclick="completeSet(this, 'Bench Press')">✓</button>
+</div>
+
+<div class="set-grid" style="grid-template-columns:28px 1fr 1fr 1fr 34px;">
+  <div class="set-num">2</div>
+  <div style="font-size:11px;color:rgba(255,255,255,.25);text-align:center;">185×8</div>
+  <input class="set-inp" value="185" type="number"/>
+  <input class="set-inp" value="8" type="number"/>
+  <button class="set-check" onclick="completeSet(this, 'Bench Press')">✓</button>
+</div>
+
+<div class="set-grid" style="grid-template-columns:28px 1fr 1fr 1fr 34px;">
+  <div class="set-num">3</div>
+  <div style="font-size:11px;color:rgba(255,255,255,.25);text-align:center;">185×7</div>
+  <input class="set-inp" placeholder="lb" type="number"/>
+  <input class="set-inp" placeholder="reps" type="number"/>
+  <button class="set-check" onclick="completeSet(this, 'Bench Press')">✓</button>
+</div>
       </div>
       <button class="btn-out">+ Add set</button>
     </div>
@@ -731,6 +822,89 @@ function showPage(id){
 // init
 renderExList('');
 renderProfile();
+<script>
+let restDuration = 90;
+let restRemaining = 90;
+let restInterval = null;
+
+const RANK_TIERS = [
+  'Iron I','Iron II','Iron III',
+  'Steel I','Steel II','Steel III',
+  'Gold I','Gold II','Gold III',
+  'Plasma I','Plasma II','Plasma III',
+  'Titan I','Titan II','Titan III',
+  'Olympus I','Olympus II','Olympus III'
+];
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function startRestTimer() {
+  clearInterval(restInterval);
+  restRemaining = restDuration;
+
+  document.getElementById('rest-timer-pill').classList.remove('hidden');
+  document.getElementById('rest-timer-time').textContent = formatTime(restRemaining);
+
+  restInterval = setInterval(() => {
+    restRemaining--;
+
+    document.getElementById('rest-timer-time').textContent = formatTime(Math.max(restRemaining, 0));
+
+    if (restRemaining <= 0) {
+      clearInterval(restInterval);
+      document.getElementById('rest-timer-time').textContent = 'Done';
+
+      setTimeout(() => {
+        document.getElementById('rest-timer-pill').classList.add('hidden');
+      }, 1200);
+    }
+  }, 1000);
+}
+
+function completeSet(btn, exerciseName) {
+  btn.classList.toggle('done');
+
+  if (btn.classList.contains('done')) {
+    startRestTimer();
+
+    const leveledUp = Math.random() > 0.65;
+
+    if (leveledUp) {
+      const randomRank = RANK_TIERS[Math.floor(Math.random() * RANK_TIERS.length)];
+      showCelebration(`${exerciseName} Level Up!`, `New rank: ${randomRank}`);
+    }
+  }
+}
+
+function showCelebration(title, sub) {
+  document.getElementById('celebration-title').textContent = title;
+  document.getElementById('celebration-sub').textContent = sub;
+
+  const overlay = document.getElementById('celebration-overlay');
+  overlay.classList.remove('hidden');
+
+  setTimeout(() => {
+    overlay.classList.add('hidden');
+  }, 1700);
+}
 </script>
+</script>
+<div id="rest-timer-pill" class="rest-timer-pill hidden">
+  <div class="rest-timer-label">Rest</div>
+  <div class="rest-timer-time" id="rest-timer-time">1:30</div>
+  <button class="rest-timer-open" onclick="openRestModal()">Edit</button>
+</div>
+
+<div id="celebration-overlay" class="celebration-overlay hidden">
+  <div class="celebration-card">
+    <div style="font-size:52px;margin-bottom:10px;">🏆</div>
+    <div id="celebration-title" style="font-size:28px;font-weight:900;">Level Up!</div>
+    <div id="celebration-sub" style="font-size:14px;color:rgba(255,255,255,.7);">Bench Press reached Iron II</div>
+  </div>
+</div>
 </body>
 </html>
